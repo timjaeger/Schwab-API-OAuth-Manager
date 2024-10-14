@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 # Schwab OAuth settings
 client_id = os.getenv('SCHWAB_CLIENT_ID')
 client_secret = os.getenv('SCHWAB_CLIENT_SECRET')
-authorization_base_url = 'https://api.schwab.com/oauth/authorize'
+authorization_base_url = 'https://api.schwabapi.com/v1/oauth/authorize'
 token_url = 'https://api.schwab.com/oauth/token'
 scope = ['openid', 'profile']
+callback_url = 'https://127.0.0.1'
 
 @app.route('/')
 def index():
@@ -24,15 +25,15 @@ def index():
 
 @app.route('/login')
 def login():
-    schwab = OAuth2Session(client_id, scope=scope, redirect_uri=url_for('callback', _external=True))
-    authorization_url, state = schwab.authorization_url(authorization_base_url)
-    session['oauth_state'] = state
+    schwab = OAuth2Session(client_id, scope=scope, redirect_uri=callback_url)
+    authorization_url = f"{authorization_base_url}?client_id={client_id}&redirect_uri={callback_url}"
+    session['oauth_state'] = schwab._state
     logger.info(f"Initiating OAuth flow, redirecting to: {authorization_url}")
     return redirect(authorization_url)
 
 @app.route('/callback')
 def callback():
-    schwab = OAuth2Session(client_id, state=session['oauth_state'], redirect_uri=url_for('callback', _external=True))
+    schwab = OAuth2Session(client_id, state=session['oauth_state'], redirect_uri=callback_url)
     try:
         token = schwab.fetch_token(token_url, client_secret=client_secret, authorization_response=request.url)
         session['oauth_token'] = token

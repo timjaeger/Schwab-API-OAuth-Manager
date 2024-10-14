@@ -25,8 +25,13 @@ scope = ['openid', 'profile']
 callback_url = 'https://127.0.0.1'
 
 def write_tokens_to_file(tokens):
+    token_data = {
+        "token_dictionary": tokens,
+        "access_token_issued": datetime.now(timezone.utc).isoformat(),
+        "refresh_token_issued": datetime.now(timezone.utc).isoformat()
+    }
     with open('tokens.json', 'w') as f:
-        json.dump(tokens, f, indent=4)
+        json.dump(token_data, f, indent=4)
 
 def refresh_token():
     if 'refresh_token' not in session:
@@ -75,10 +80,8 @@ def get_valid_token():
     logger.info("Using existing valid token")
     return session['access_token']
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 def index():
-    if request.method == 'POST':
-        return process_redirect()
     return render_template('index.html')
 
 @app.route('/login')
@@ -86,10 +89,6 @@ def login():
     authorization_url = f"https://api.schwabapi.com/v1/oauth/authorize?client_id={client_id}&redirect_uri={callback_url}"
     logger.info(f"Initiating OAuth flow, redirecting to: {authorization_url}")
     return redirect(authorization_url)
-
-@app.route('/enter_redirect')
-def enter_redirect():
-    return render_template('enter_redirect.html')
 
 @app.route('/process_redirect', methods=['POST'])
 def process_redirect():
@@ -123,14 +122,10 @@ def process_redirect():
         write_tokens_to_file(token_data)
         
         logger.info("Successfully obtained OAuth token")
-        return redirect(url_for('profile'))
+        return jsonify({"success": True, "profile_url": url_for('profile', _external=True)})
     except Exception as e:
         logger.error(f"Error processing redirect URL: {str(e)}")
-        return render_template('error.html', error=str(e)), 400
-
-@app.route('/callback')
-def callback():
-    return redirect(url_for('enter_redirect'))
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/profile')
 def profile():

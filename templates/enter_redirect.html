@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Enter Redirect URL</h2>
+    <form action="{{ url_for('process_redirect') }}" method="post">
+        <div class="mb-3">
+            <label for="redirect_url" class="form-label">Paste the redirect URL here:</label>
+            <input type="text" class="form-control" id="redirect_url" name="redirect_url" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+</div>
+{% endblock %}

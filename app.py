@@ -3,6 +3,8 @@ import logging
 from flask import Flask, render_template, redirect, url_for, session, request
 from requests_oauthlib import OAuth2Session
 from config import Config
+from urllib.parse import urlencode, parse_qs
+import requests
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -31,36 +33,69 @@ def login():
     logger.info(f"Initiating OAuth flow, redirecting to: {authorization_url}")
     return redirect(authorization_url)
 
-@app.route('/callback')
-def callback():
-    schwab = OAuth2Session(client_id, state=session['oauth_state'], redirect_uri=callback_url)
+@app.route('/enter_redirect')
+def enter_redirect():
+    return render_template('enter_redirect.html')
+
+@app.route('/process_redirect', methods=['POST'])
+def process_redirect():
+    redirect_url = request.form['redirect_url']
     try:
-        token = schwab.fetch_token(token_url, client_secret=client_secret, authorization_response=request.url)
-        session['oauth_token'] = token
+        # Extract the code from the URL
+        parsed_url = parse_qs(redirect_url.split('?')[1])
+        code = parsed_url.get('code', [None])[0]
+        
+        if not code:
+            raise ValueError("No code found in the redirect URL")
+
+        # Make the token request
+        token_params = {
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': callback_url,
+            'client_id': client_id,
+            'client_secret': client_secret
+        }
+        
+        response = requests.post(token_url, data=token_params)
+        response.raise_for_status()
+        token_data = response.json()
+
+        # Store the tokens securely
+        session['access_token'] = token_data['access_token']
+        session['refresh_token'] = token_data.get('refresh_token')
+        
         logger.info("Successfully obtained OAuth token")
         return redirect(url_for('profile'))
     except Exception as e:
-        logger.error(f"Error during OAuth callback: {str(e)}")
-        return "Authentication failed", 400
+        logger.error(f"Error processing redirect URL: {str(e)}")
+        return render_template('error.html', error=str(e)), 400
+
+@app.route('/callback')
+def callback():
+    return redirect(url_for('enter_redirect'))
 
 @app.route('/profile')
 def profile():
-    if 'oauth_token' not in session:
+    if 'access_token' not in session:
         logger.warning("Attempted to access profile without authentication")
         return redirect(url_for('index'))
     
-    schwab = OAuth2Session(client_id, token=session['oauth_token'])
     try:
-        user_info = schwab.get('https://api.schwab.com/v1/user/profile').json()
+        headers = {'Authorization': f"Bearer {session['access_token']}"}
+        response = requests.get('https://api.schwab.com/v1/user/profile', headers=headers)
+        response.raise_for_status()
+        user_info = response.json()
         logger.info("Successfully retrieved user profile")
         return render_template('profile.html', user_info=user_info)
     except Exception as e:
         logger.error(f"Error retrieving user profile: {str(e)}")
-        return "Failed to retrieve user information", 400
+        return render_template('error.html', error=str(e)), 400
 
 @app.route('/logout')
 def logout():
-    session.pop('oauth_token', None)
+    session.pop('access_token', None)
+    session.pop('refresh_token', None)
     session.pop('oauth_state', None)
     logger.info("User logged out")
     return redirect(url_for('index'))

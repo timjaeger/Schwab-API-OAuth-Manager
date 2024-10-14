@@ -5,7 +5,7 @@
     <h1 class="display-4">Welcome to Schwab OAuth App</h1>
     <p class="lead">This application demonstrates OAuth 2.0 authentication with Schwab's API.</p>
     {% if 'oauth_token' not in session %}
-        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Login with Schwab</a>
+        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg" target="_blank">Login with Schwab</a>
     {% else %}
         <a href="{{ url_for('profile') }}" class="btn btn-secondary btn-lg">View Profile</a>
     {% endif %}

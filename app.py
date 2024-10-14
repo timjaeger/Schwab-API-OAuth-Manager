@@ -7,6 +7,7 @@ from urllib.parse import urlencode, parse_qs
 import requests
 from datetime import datetime, timedelta
 import base64
+import json
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -22,6 +23,10 @@ authorization_base_url = 'https://api.schwabapi.com/v1/oauth/authorize'
 token_url = 'https://api.schwabapi.com/v1/oauth/token'
 scope = ['openid', 'profile']
 callback_url = 'https://127.0.0.1'
+
+def write_tokens_to_file(tokens):
+    with open('tokens.json', 'w') as f:
+        json.dump(tokens, f, indent=4)
 
 def refresh_token():
     if 'refresh_token' not in session:
@@ -46,6 +51,8 @@ def refresh_token():
         session['access_token'] = token_data['access_token']
         session['refresh_token'] = token_data.get('refresh_token', refresh_token)
         session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+
+        write_tokens_to_file(token_data)
 
         logger.info("Successfully refreshed OAuth token")
         return token_data['access_token']
@@ -111,6 +118,9 @@ def process_redirect():
         session['access_token'] = token_data['access_token']
         session['refresh_token'] = token_data.get('refresh_token')
         session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+        session['logged_in'] = True
+        
+        write_tokens_to_file(token_data)
         
         logger.info("Successfully obtained OAuth token")
         return redirect(url_for('profile'))
@@ -166,6 +176,7 @@ def logout():
     session.pop('refresh_token', None)
     session.pop('oauth_state', None)
     session.pop('token_expiry', None)
+    session.pop('logged_in', None)
     logger.info("User logged out")
     return redirect(url_for('index'))
 

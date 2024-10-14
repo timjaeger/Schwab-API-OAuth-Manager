@@ -4,7 +4,7 @@
 <div class="jumbotron">
     <h1 class="display-4">Welcome to Schwab OAuth App</h1>
     <p class="lead">This application demonstrates OAuth 2.0 authentication with Schwab's API.</p>
-    {% if 'access_token' not in session %}
+    {% if 'logged_in' not in session %}
         <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg" target="_blank">Login with Schwab</a>
         
         <form action="{{ url_for('process_redirect') }}" method="post" class="mt-3">

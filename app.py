@@ -6,6 +6,7 @@ from config import Config
 from urllib.parse import urlencode, parse_qs
 import requests
 from datetime import datetime, timedelta
+import base64
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -28,21 +29,23 @@ def refresh_token():
         return None
 
     refresh_token = session['refresh_token']
-    token_params = {
+    headers = {
+        'Authorization': f"Basic {base64.b64encode(bytes(f'{client_id}:{client_secret}', 'utf-8')).decode('utf-8')}",
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+    data = {
         'grant_type': 'refresh_token',
-        'refresh_token': refresh_token,
-        'client_id': client_id,
-        'client_secret': client_secret
+        'refresh_token': refresh_token
     }
 
     try:
-        response = requests.post(token_url, data=token_params)
+        response = requests.post(token_url, headers=headers, data=data)
         response.raise_for_status()
         token_data = response.json()
 
         session['access_token'] = token_data['access_token']
         session['refresh_token'] = token_data.get('refresh_token', refresh_token)
-        session['token_expiry'] = datetime.now() + timedelta(seconds=30)  # Set to 30 seconds for testing
+        session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
 
         logger.info("Successfully refreshed OAuth token")
         return token_data['access_token']
@@ -86,29 +89,28 @@ def process_redirect():
     redirect_url = request.form['redirect_url']
     try:
         # Extract the code from the URL
-        parsed_url = parse_qs(redirect_url.split('?')[1])
-        code = parsed_url.get('code', [None])[0]
+        code = f"{redirect_url[redirect_url.index('code=')+5:redirect_url.index('%40')]}@"
         
-        if not code:
-            raise ValueError("No code found in the redirect URL")
-
-        # Make the token request
-        token_params = {
+        # Prepare headers and data for token request
+        headers = {
+            'Authorization': f"Basic {base64.b64encode(bytes(f'{client_id}:{client_secret}', 'utf-8')).decode('utf-8')}",
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        data = {
             'grant_type': 'authorization_code',
             'code': code,
-            'redirect_uri': callback_url,
-            'client_id': client_id,
-            'client_secret': client_secret
+            'redirect_uri': 'https://127.0.0.1'
         }
         
-        response = requests.post(token_url, data=token_params)
+        # Make the token request
+        response = requests.post('https://api.schwabapi.com/v1/oauth/token', headers=headers, data=data)
         response.raise_for_status()
         token_data = response.json()
 
         # Store the tokens securely
         session['access_token'] = token_data['access_token']
         session['refresh_token'] = token_data.get('refresh_token')
-        session['token_expiry'] = datetime.now() + timedelta(seconds=30)  # Set to 30 seconds for testing
+        session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
         
         logger.info("Successfully obtained OAuth token")
         return redirect(url_for('profile'))
@@ -137,6 +139,25 @@ def profile():
         return render_template('profile.html', user_info=user_info)
     except Exception as e:
         logger.error(f"Error retrieving user profile: {str(e)}")
+        return render_template('error.html', error=str(e)), 400
+
+@app.route('/accounts')
+def accounts():
+    logger.info("Accessing accounts route")
+    access_token = get_valid_token()
+    if not access_token:
+        logger.warning("No valid access token available, redirecting to login")
+        return redirect(url_for('login'))
+    
+    try:
+        headers = {'Authorization': f"Bearer {access_token}"}
+        response = requests.get('https://api.schwabapi.com/trader/v1/accounts/accountNumbers', headers=headers)
+        response.raise_for_status()
+        account_numbers = response.json()
+        logger.info("Successfully retrieved account numbers")
+        return render_template('accounts.html', account_numbers=account_numbers)
+    except Exception as e:
+        logger.error(f"Error retrieving account numbers: {str(e)}")
         return render_template('error.html', error=str(e)), 400
 
 @app.route('/logout')

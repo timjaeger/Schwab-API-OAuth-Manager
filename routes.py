@@ -5,6 +5,7 @@ import json
 import requests
 from app import app, client_id, client_secret, authorization_base_url, token_url, scope, callback_url, logger
 from modules.oauth import write_tokens_to_file, refresh_token, get_valid_token
+from modules.oauth.token_middleware import token_required
 from requests_oauthlib import OAuth2Session
 
 @app.route('/')
@@ -87,20 +88,21 @@ def logout():
     return redirect(url_for('index'))
 
 @app.route('/test_refresh')
+@token_required
 def test_refresh():
     logger.info("Testing token refresh")
-    session['token_expiry'] = datetime.now(timezone.utc) - timedelta(seconds=1)
-    
-    access_token = get_valid_token(client_id, client_secret, token_url, logger)
-    if not access_token:
-        return jsonify({"error": "Failed to refresh token"}), 400
     
     with open('tokens.json', 'r') as f:
         tokens = json.load(f)
     
     return jsonify({
         "message": "Token refreshed successfully",
-        "new_access_token": access_token[:10] + '...',  # Show only first 10 characters
+        "new_access_token": session['access_token'][:10] + '...',  # Show only first 10 characters
         "expires_in": tokens['token_dictionary'].get('expires_in'),
         "token_type": tokens['token_dictionary'].get('token_type')
     })
+
+@app.route('/protected')
+@token_required
+def protected():
+    return jsonify({"message": "This is a protected route", "access_token": session['access_token'][:10] + '...'})

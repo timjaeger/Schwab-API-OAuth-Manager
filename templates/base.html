@@ -10,13 +10,13 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">Schwab OAuth App</a>
+            <a class="navbar-brand" href="{{ url_for('routes_bp.index') }}">Schwab OAuth App</a>
             <div class="navbar-nav">
                 {% if 'access_token' in session %}
-                    <a class="nav-item nav-link" href="{{ url_for('profile') }}">Profile</a>
-                    <a class="nav-item nav-link" href="{{ url_for('logout') }}">Logout</a>
+                    <a class="nav-item nav-link" href="{{ url_for('routes_bp.profile') }}">Profile</a>
+                    <a class="nav-item nav-link" href="{{ url_for('routes_bp.logout') }}">Logout</a>
                 {% else %}
-                    <a class="nav-item nav-link" href="{{ url_for('login') }}">Login</a>
+                    <a class="nav-item nav-link" href="{{ url_for('routes_bp.login') }}">Login</a>
                 {% endif %}
             </div>
         </div>

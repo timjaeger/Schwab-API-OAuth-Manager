@@ -128,11 +128,26 @@ def process_redirect():
             
             write_tokens_to_file(token_data)
             
-            logger.info("Successfully obtained OAuth token")
-            return redirect(url_for('profile'))
+            # Get account numbers
+            base_url = "https://api.schwabapi.com/trader/v1/"
+            account_response = requests.get(f'{base_url}/accounts/accountNumbers', headers={'Authorization': f'Bearer {token_data["access_token"]}'})
+            account_response.raise_for_status()
+            account_numbers = account_response.json()
+            
+            return jsonify({
+                "message": "Successfully processed OAuth flow",
+                "account_numbers": account_numbers,
+                "token_info": {
+                    "access_token": token_data['access_token'][:10] + '...',  # Show only first 10 characters
+                    "expires_in": token_data.get('expires_in'),
+                    "token_type": token_data.get('token_type')
+                }
+            })
         except Exception as e:
             logger.error(f"Error processing redirect URL: {str(e)}")
-            return render_template('error.html', error=str(e)), 400
+            return jsonify({"error": str(e)}), 400
+
+    return render_template('enter_redirect.html')
 
 @app.route('/profile')
 def profile():

@@ -3,11 +3,38 @@
 <div class="container">
     <h2>Enter Redirect URL</h2>
     <p>Please paste the entire URL you were redirected to after logging in with Schwab:</p>
-    <form action="{{ url_for('process_redirect') }}" method="post">
+    <form id="redirectForm">
         <div class="mb-3">
             <input type="text" class="form-control" id="redirect_url" name="redirect_url" placeholder="https://127.0.0.1/?code=..." required>
         </div>
         <button type="submit" class="btn btn-primary">Submit</button>
     </form>
+    <div id="result" class="mt-4"></div>
 </div>
+
+<script>
+document.getElementById('redirectForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    fetch("{{ url_for('process_redirect') }}", {
+        method: 'POST',
+        body: new FormData(this)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <h3>OAuth Flow Result</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+    });
+});
+</script>
 {% endblock %}

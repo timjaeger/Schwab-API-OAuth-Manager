@@ -10,6 +10,7 @@
         <button type="submit" class="btn btn-primary">Submit</button>
     </form>
     <div id="result" class="mt-4"></div>
+    <button id="homeButton" class="btn btn-secondary mt-2" style="display: none;">Home</button>
 </div>
 
 <script>
@@ -29,6 +30,11 @@ document.getElementById('redirectForm').addEventListener('submit', function(e) {
                 <h3>OAuth Flow Result</h3>
                 <pre>${JSON.stringify(data, null, 2)}</pre>
             `;
+            const homeButton = document.getElementById('homeButton');
+            homeButton.style.display = 'inline-block';
+            homeButton.addEventListener('click', function() {
+                window.location.href = "{{ url_for('index') }}";
+            });
         }
     })
     .catch(error => {

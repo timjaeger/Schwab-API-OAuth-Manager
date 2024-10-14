@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Login Instructions</h2>
+    <ol>
+        <li>Click the button below to open the Schwab login page in a new tab.</li>
+        <li>After logging in and authorizing the app, you will be redirected to a URL starting with "https://127.0.0.1/".</li>
+        <li>Copy the entire URL from your browser's address bar.</li>
+        <li>Return to this page and click the "Enter Redirect URL" button below.</li>
+    </ol>
+    <a href="{{ auth_url }}" target="_blank" class="btn btn-primary">Open Schwab Login</a>
+    <a href="{{ url_for('enter_redirect') }}" class="btn btn-secondary">Enter Redirect URL</a>
+</div>
+{% endblock %}

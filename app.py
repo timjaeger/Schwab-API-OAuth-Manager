@@ -42,7 +42,7 @@ def refresh_token():
 
         session['access_token'] = token_data['access_token']
         session['refresh_token'] = token_data.get('refresh_token', refresh_token)
-        session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+        session['token_expiry'] = datetime.now() + timedelta(seconds=30)  # Set to 30 seconds for testing
 
         logger.info("Successfully refreshed OAuth token")
         return token_data['access_token']
@@ -52,11 +52,17 @@ def refresh_token():
 
 def get_valid_token():
     if 'access_token' not in session or 'token_expiry' not in session:
+        logger.warning("No access token or expiry time in session")
         return None
 
+    time_until_expiry = session['token_expiry'] - datetime.now()
+    logger.info(f"Time until token expiry: {time_until_expiry}")
+
     if datetime.now() >= session['token_expiry']:
+        logger.info("Token expired, refreshing...")
         return refresh_token()
     
+    logger.info("Using existing valid token")
     return session['access_token']
 
 @app.route('/')
@@ -67,9 +73,9 @@ def index():
 def login():
     schwab = OAuth2Session(client_id, scope=scope, redirect_uri=callback_url)
     authorization_url = f"{authorization_base_url}?client_id={client_id}&redirect_uri={callback_url}"
-    session['oauth_state'] = schwab._state
+    session['oauth_state'] = schwab.state
     logger.info(f"Initiating OAuth flow, redirecting to: {authorization_url}")
-    return redirect(authorization_url)
+    return render_template('login_instructions.html', auth_url=authorization_url)
 
 @app.route('/enter_redirect')
 def enter_redirect():
@@ -102,7 +108,7 @@ def process_redirect():
         # Store the tokens securely
         session['access_token'] = token_data['access_token']
         session['refresh_token'] = token_data.get('refresh_token')
-        session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+        session['token_expiry'] = datetime.now() + timedelta(seconds=30)  # Set to 30 seconds for testing
         
         logger.info("Successfully obtained OAuth token")
         return redirect(url_for('profile'))

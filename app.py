@@ -94,25 +94,6 @@ def process_redirect():
 
     return render_template('enter_redirect.html')
 
-@app.route('/profile')
-def profile():
-    logger.info("Accessing profile route")
-    access_token = get_valid_token(client_id, client_secret, token_url, logger)
-    if not access_token:
-        logger.warning("No valid access token available, redirecting to login")
-        return redirect(url_for('login'))
-    
-    try:
-        headers = {'Authorization': f"Bearer {access_token}"}
-        response = requests.get('https://api.schwabapi.com/v1/user/profile', headers=headers)
-        response.raise_for_status()
-        user_info = response.json()
-        logger.info("Successfully retrieved user profile")
-        return render_template('profile.html', user_info=user_info)
-    except Exception as e:
-        logger.error(f"Error retrieving user profile: {str(e)}")
-        return render_template('error.html', error=str(e)), 400
-
 @app.route('/logout')
 def logout():
     session.pop('access_token', None)

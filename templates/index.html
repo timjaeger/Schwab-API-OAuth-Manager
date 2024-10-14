@@ -7,7 +7,6 @@
     {% if 'logged_in' not in session %}
         <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Login with Schwab</a>
     {% endif %}
-    <a href="{{ url_for('profile') }}" class="btn btn-secondary btn-lg mt-2">View Profile</a>
     <a href="#" id="testRefreshBtn" class="btn btn-info btn-lg mt-2">Test Token Refresh</a>
 </div>
 <div id="refreshResult" class="mt-4"></div>

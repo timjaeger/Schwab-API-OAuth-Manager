@@ -1,35 +1,44 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="jumbotron">
-    <h1 class="display-4">Welcome to Schwab OAuth App</h1>
-    <p class="lead">This application demonstrates OAuth 2.0 authentication with Schwab's API.</p>
-    {% if 'logged_in' not in session %}
-        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Login with Schwab</a>
+<div class="container">
+    <h1>Schwab OAuth Authentication App</h1>
+    {% if 'access_token' in session %}
+        <p>You are logged in.</p>
+        <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+        <button id="testRefreshBtn" class="btn btn-primary">Test Token Refresh</button>
+        <div id="refreshResult" class="mt-3"></div>
+    {% else %}
+        <p>Welcome! Please log in to access your Schwab account information.</p>
+        <a href="{{ url_for('login') }}" class="btn btn-primary">Login with Schwab</a>
     {% endif %}
-    <a href="#" id="testRefreshBtn" class="btn btn-info btn-lg mt-2">Test Token Refresh</a>
 </div>
-<div id="refreshResult" class="mt-4"></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    var testRefreshBtn = document.getElementById('testRefreshBtn');
+    const testRefreshBtn = document.getElementById('testRefreshBtn');
+    const refreshResult = document.getElementById('refreshResult');
+
     if (testRefreshBtn) {
-        testRefreshBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            fetch("{{ url_for('test_refresh') }}")
-            .then(response => response.json())
-            .then(data => {
-                const resultDiv = document.getElementById('refreshResult');
-                resultDiv.innerHTML = `
-                    <h3>Token Refresh Result</h3>
-                    <pre>${JSON.stringify(data, null, 2)}</pre>
-                `;
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while refreshing the token. Please try again.');
-            });
+        testRefreshBtn.addEventListener('click', function() {
+            fetch('/test_refresh')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        refreshResult.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                    } else {
+                        refreshResult.innerHTML = `
+                            <div class="alert alert-success">
+                                <p>${data.message}</p>
+                                <p>New Access Token: ${data.new_access_token}</p>
+                                <p>Expires In: ${data.expires_in} seconds</p>
+                                <p>Token Type: ${data.token_type}</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    refreshResult.innerHTML = `<div class="alert alert-danger">An error occurred: ${error}</div>`;
+                });
         });
     }
 });

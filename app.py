@@ -5,7 +5,7 @@ from requests_oauthlib import OAuth2Session
 from config import Config
 from urllib.parse import urlencode, parse_qs
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import base64
 import json
 
@@ -50,7 +50,7 @@ def refresh_token():
 
         session['access_token'] = token_data['access_token']
         session['refresh_token'] = token_data.get('refresh_token', refresh_token)
-        session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+        session['token_expiry'] = datetime.now(timezone.utc) + timedelta(seconds=token_data.get('expires_in', 3600))
 
         write_tokens_to_file(token_data)
 
@@ -65,10 +65,10 @@ def get_valid_token():
         logger.warning("No access token or expiry time in session")
         return None
 
-    time_until_expiry = session['token_expiry'] - datetime.now()
+    time_until_expiry = session['token_expiry'] - datetime.now(timezone.utc)
     logger.info(f"Time until token expiry: {time_until_expiry}")
 
-    if datetime.now() >= session['token_expiry']:
+    if datetime.now(timezone.utc) >= session['token_expiry']:
         logger.info("Token expired, refreshing...")
         return refresh_token()
     
@@ -117,7 +117,7 @@ def process_redirect():
         # Store the tokens securely
         session['access_token'] = token_data['access_token']
         session['refresh_token'] = token_data.get('refresh_token')
-        session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+        session['token_expiry'] = datetime.now(timezone.utc) + timedelta(seconds=token_data.get('expires_in', 3600))
         session['logged_in'] = True
         
         write_tokens_to_file(token_data)
@@ -184,7 +184,7 @@ def logout():
 def test_refresh():
     logger.info("Testing token refresh")
     # Force token expiration
-    session['token_expiry'] = datetime.now() - timedelta(seconds=1)
+    session['token_expiry'] = datetime.now(timezone.utc) - timedelta(seconds=1)
     
     access_token = get_valid_token()
     if not access_token:

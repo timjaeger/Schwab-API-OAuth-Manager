@@ -4,7 +4,9 @@
 <div class="jumbotron">
     <h1 class="display-4">Welcome to Schwab OAuth App</h1>
     <p class="lead">This application demonstrates OAuth 2.0 authentication with Schwab's API.</p>
-    <a href='#' id='loginBtn' class='btn btn-primary btn-lg'>Login with Schwab</a>
+    {% if 'logged_in' not in session %}
+        <a href="{{ url_for('routes_bp.login') }}" class="btn btn-primary btn-lg">Login with Schwab</a>
+    {% endif %}
     <a href="{{ url_for('routes_bp.profile') }}" class="btn btn-secondary btn-lg mt-2">View Profile</a>
     {% if 'logged_in' in session %}
         <a href="#" id="testRefreshBtn" class="btn btn-info btn-lg mt-2">Test Token Refresh</a>
@@ -14,88 +16,25 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM fully loaded');
-
-    function initLoginButton() {
-        var loginBtn = document.getElementById('loginBtn');
-        console.log('Login button:', loginBtn);
-        if (loginBtn) {
-            loginBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                console.log('Login button clicked');
-                fetch("{{ url_for('routes_bp.login') }}")
-                .then(response => response.json())
-                .then(data => {
-                    if (data.auth_url) {
-                        console.log('Opening auth window with URL:', data.auth_url);
-                        var authWindow = window.open(data.auth_url, "SchwabAuth", "width=600,height=600");
-                        if (authWindow) {
-                            window.addEventListener('message', function(event) {
-                                if (event.origin === "https://127.0.0.1") {
-                                    console.log('Received message from auth window');
-                                    authWindow.close();
-                                    fetch("{{ url_for('routes_bp.process_redirect') }}", {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify({redirect_url: event.data}),
-                                    })
-                                    .then(response => response.json())
-                                    .then(data => {
-                                        if (data.success) {
-                                            console.log('Login successful, redirecting to profile');
-                                            window.location.href = "{{ url_for('routes_bp.profile') }}";
-                                        } else {
-                                            console.error('Login error:', data.error);
-                                            alert('Error: ' + data.error);
-                                        }
-                                    });
-                                }
-                            }, false);
-                        } else {
-                            console.error('Failed to open auth window');
-                            alert("Unable to open authentication window. Please check your pop-up blocker settings.");
-                        }
-                    } else {
-                        console.error('No auth_url in response');
-                        alert('Error: Unable to start login process');
-                    }
-                })
-                .catch(error => {
-                    console.error('Fetch error:', error);
-                    alert('An error occurred while starting the login process. Please try again.');
-                });
+    var testRefreshBtn = document.getElementById('testRefreshBtn');
+    if (testRefreshBtn) {
+        testRefreshBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            fetch("{{ url_for('routes_bp.test_refresh') }}")
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('refreshResult');
+                resultDiv.innerHTML = `
+                    <h3>Token Refresh Result</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while refreshing the token. Please try again.');
             });
-        } else {
-            console.warn('Login button not found. User might already be logged in.');
-        }
+        });
     }
-
-    function initTestRefreshButton() {
-        var testRefreshBtn = document.getElementById('testRefreshBtn');
-        if (testRefreshBtn) {
-            testRefreshBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                fetch("{{ url_for('routes_bp.test_refresh') }}")
-                .then(response => response.json())
-                .then(data => {
-                    const resultDiv = document.getElementById('refreshResult');
-                    resultDiv.innerHTML = `
-                        <h3>Token Refresh Result</h3>
-                        <pre>${JSON.stringify(data, null, 2)}</pre>
-                    `;
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while refreshing the token. Please try again.');
-                });
-            });
-        }
-    }
-
-    initLoginButton();
-    initTestRefreshButton();
 });
 </script>
 {% endblock %}

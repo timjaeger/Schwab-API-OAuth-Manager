@@ -13,21 +13,26 @@
 <div id="refreshResult" class="mt-4"></div>
 
 <script>
-document.getElementById('testRefreshBtn').addEventListener('click', function(e) {
-    e.preventDefault();
-    fetch("{{ url_for('test_refresh') }}")
-    .then(response => response.json())
-    .then(data => {
-        const resultDiv = document.getElementById('refreshResult');
-        resultDiv.innerHTML = `
-            <h3>Token Refresh Result</h3>
-            <pre>${JSON.stringify(data, null, 2)}</pre>
-        `;
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while refreshing the token. Please try again.');
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    var testRefreshBtn = document.getElementById('testRefreshBtn');
+    if (testRefreshBtn) {
+        testRefreshBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            fetch("{{ url_for('test_refresh') }}")
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('refreshResult');
+                resultDiv.innerHTML = `
+                    <h3>Token Refresh Result</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while refreshing the token. Please try again.');
+            });
+        });
+    }
 });
 </script>
 {% endblock %}

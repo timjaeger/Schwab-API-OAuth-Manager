@@ -5,6 +5,7 @@ from requests_oauthlib import OAuth2Session
 from config import Config
 from urllib.parse import urlencode, parse_qs
 import requests
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -20,6 +21,43 @@ authorization_base_url = 'https://api.schwabapi.com/v1/oauth/authorize'
 token_url = 'https://api.schwab.com/oauth/token'
 scope = ['openid', 'profile']
 callback_url = 'https://127.0.0.1'
+
+def refresh_token():
+    if 'refresh_token' not in session:
+        logger.error("No refresh token available")
+        return None
+
+    refresh_token = session['refresh_token']
+    token_params = {
+        'grant_type': 'refresh_token',
+        'refresh_token': refresh_token,
+        'client_id': client_id,
+        'client_secret': client_secret
+    }
+
+    try:
+        response = requests.post(token_url, data=token_params)
+        response.raise_for_status()
+        token_data = response.json()
+
+        session['access_token'] = token_data['access_token']
+        session['refresh_token'] = token_data.get('refresh_token', refresh_token)
+        session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+
+        logger.info("Successfully refreshed OAuth token")
+        return token_data['access_token']
+    except Exception as e:
+        logger.error(f"Error refreshing token: {str(e)}")
+        return None
+
+def get_valid_token():
+    if 'access_token' not in session or 'token_expiry' not in session:
+        return None
+
+    if datetime.now() >= session['token_expiry']:
+        return refresh_token()
+    
+    return session['access_token']
 
 @app.route('/')
 def index():
@@ -64,6 +102,7 @@ def process_redirect():
         # Store the tokens securely
         session['access_token'] = token_data['access_token']
         session['refresh_token'] = token_data.get('refresh_token')
+        session['token_expiry'] = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
         
         logger.info("Successfully obtained OAuth token")
         return redirect(url_for('profile'))
@@ -77,12 +116,13 @@ def callback():
 
 @app.route('/profile')
 def profile():
-    if 'access_token' not in session:
-        logger.warning("Attempted to access profile without authentication")
-        return redirect(url_for('index'))
+    access_token = get_valid_token()
+    if not access_token:
+        logger.warning("No valid access token available")
+        return redirect(url_for('login'))
     
     try:
-        headers = {'Authorization': f"Bearer {session['access_token']}"}
+        headers = {'Authorization': f"Bearer {access_token}"}
         response = requests.get('https://api.schwab.com/v1/user/profile', headers=headers)
         response.raise_for_status()
         user_info = response.json()
@@ -97,6 +137,7 @@ def logout():
     session.pop('access_token', None)
     session.pop('refresh_token', None)
     session.pop('oauth_state', None)
+    session.pop('token_expiry', None)
     logger.info("User logged out")
     return redirect(url_for('index'))
 

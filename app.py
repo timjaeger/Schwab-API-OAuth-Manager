@@ -8,6 +8,7 @@ import requests
 from datetime import datetime, timedelta, timezone
 import base64
 import json
+from modules.oauth import write_tokens_to_file, refresh_token, get_valid_token
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -23,62 +24,6 @@ authorization_base_url = 'https://api.schwabapi.com/v1/oauth/authorize'
 token_url = 'https://api.schwabapi.com/v1/oauth/token'
 scope = ['openid', 'profile']
 callback_url = 'https://127.0.0.1'
-
-def write_tokens_to_file(tokens):
-    token_data = {
-        "access_token_issued": datetime.now(timezone.utc).isoformat(),
-        "refresh_token_issued": datetime.now(timezone.utc).isoformat(),
-        "token_dictionary": tokens
-    }
-    with open('tokens.json', 'w') as f:
-        json.dump(token_data, f, indent=4)
-
-def refresh_token():
-    if 'refresh_token' not in session:
-        logger.error("No refresh token available")
-        return None
-
-    refresh_token = session['refresh_token']
-    headers = {
-        'Authorization': f"Basic {base64.b64encode(bytes(f'{client_id}:{client_secret}', 'utf-8')).decode('utf-8')}",
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-    data = {
-        'grant_type': 'refresh_token',
-        'refresh_token': refresh_token
-    }
-
-    try:
-        response = requests.post(token_url, headers=headers, data=data)
-        response.raise_for_status()
-        token_data = response.json()
-
-        session['access_token'] = token_data['access_token']
-        session['refresh_token'] = token_data.get('refresh_token', refresh_token)
-        session['token_expiry'] = datetime.now(timezone.utc) + timedelta(seconds=token_data.get('expires_in', 3600))
-
-        write_tokens_to_file(token_data)
-
-        logger.info("Successfully refreshed OAuth token")
-        return token_data['access_token']
-    except Exception as e:
-        logger.error(f"Error refreshing token: {str(e)}")
-        return None
-
-def get_valid_token():
-    if 'access_token' not in session or 'token_expiry' not in session:
-        logger.warning("No access token or expiry time in session")
-        return None
-
-    time_until_expiry = session['token_expiry'] - datetime.now(timezone.utc)
-    logger.info(f"Time until token expiry: {time_until_expiry}")
-
-    if datetime.now(timezone.utc) >= session['token_expiry']:
-        logger.info("Token expired, refreshing...")
-        return refresh_token()
-    
-    logger.info("Using existing valid token")
-    return session['access_token']
 
 @app.route('/')
 def index():
@@ -152,7 +97,7 @@ def process_redirect():
 @app.route('/profile')
 def profile():
     logger.info("Accessing profile route")
-    access_token = get_valid_token()
+    access_token = get_valid_token(client_id, client_secret, token_url, logger)
     if not access_token:
         logger.warning("No valid access token available, redirecting to login")
         return redirect(url_for('login'))
@@ -183,7 +128,7 @@ def test_refresh():
     logger.info("Testing token refresh")
     session['token_expiry'] = datetime.now(timezone.utc) - timedelta(seconds=1)
     
-    access_token = get_valid_token()
+    access_token = get_valid_token(client_id, client_secret, token_url, logger)
     if not access_token:
         return jsonify({"error": "Failed to refresh token"}), 400
     

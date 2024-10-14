@@ -65,8 +65,10 @@ def get_valid_token():
     logger.info("Using existing valid token")
     return session['access_token']
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
+    if request.method == 'POST':
+        return process_redirect()
     return render_template('index.html')
 
 @app.route('/login')
@@ -122,9 +124,10 @@ def callback():
 
 @app.route('/profile')
 def profile():
+    logger.info("Accessing profile route")
     access_token = get_valid_token()
     if not access_token:
-        logger.warning("No valid access token available")
+        logger.warning("No valid access token available, redirecting to login")
         return redirect(url_for('login'))
     
     try:

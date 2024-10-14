@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template, redirect, url_for, session, request
+from flask import Flask, render_template, redirect, url_for, session, request, jsonify
 from requests_oauthlib import OAuth2Session
 from config import Config
 from urllib.parse import urlencode, parse_qs
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 client_id = os.getenv('SCHWAB_CLIENT_ID')
 client_secret = os.getenv('SCHWAB_CLIENT_SECRET')
 authorization_base_url = 'https://api.schwabapi.com/v1/oauth/authorize'
-token_url = 'https://api.schwab.com/oauth/token'
+token_url = 'https://api.schwabapi.com/v1/oauth/token'
 scope = ['openid', 'profile']
 callback_url = 'https://127.0.0.1'
 
@@ -130,7 +130,7 @@ def profile():
     
     try:
         headers = {'Authorization': f"Bearer {access_token}"}
-        response = requests.get('https://api.schwab.com/v1/user/profile', headers=headers)
+        response = requests.get('https://api.schwabapi.com/v1/user/profile', headers=headers)
         response.raise_for_status()
         user_info = response.json()
         logger.info("Successfully retrieved user profile")
@@ -147,6 +147,18 @@ def logout():
     session.pop('token_expiry', None)
     logger.info("User logged out")
     return redirect(url_for('index'))
+
+@app.route('/test_refresh')
+def test_refresh():
+    logger.info("Testing token refresh")
+    # Force token expiration
+    session['token_expiry'] = datetime.now() - timedelta(seconds=1)
+    
+    access_token = get_valid_token()
+    if not access_token:
+        return jsonify({"error": "Failed to refresh token"}), 400
+    
+    return jsonify({"message": "Token refreshed successfully", "new_token": access_token})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

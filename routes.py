@@ -1,12 +1,12 @@
 import os
 import logging
-from flask import Blueprint, render_template, redirect, url_for, session, request, jsonify, current_app
+from flask import Blueprint, render_template, redirect, url_for, session, request, jsonify
 from requests_oauthlib import OAuth2Session
-from urllib.parse import urlencode, parse_qs
 import requests
-from datetime import datetime, timedelta, timezone
-import base64
 import json
+from modules.oauth.write_tokens import write_tokens_to_file
+from modules.oauth.refresh_token import refresh_token
+from modules.oauth.get_valid_token import get_valid_token
 
 routes_bp = Blueprint('routes_bp', __name__)
 
@@ -21,62 +21,6 @@ authorization_base_url = 'https://api.schwabapi.com/v1/oauth/authorize'
 token_url = 'https://api.schwabapi.com/v1/oauth/token'
 scope = ['openid', 'profile']
 callback_url = 'https://127.0.0.1'
-
-def write_tokens_to_file(tokens):
-    token_data = {
-        "access_token_issued": datetime.now(timezone.utc).isoformat(),
-        "refresh_token_issued": datetime.now(timezone.utc).isoformat(),
-        "token_dictionary": tokens
-    }
-    with open('tokens.json', 'w') as f:
-        json.dump(token_data, f, indent=4)
-
-def refresh_token():
-    if 'refresh_token' not in session:
-        logger.error("No refresh token available")
-        return None
-
-    refresh_token = session['refresh_token']
-    headers = {
-        'Authorization': f"Basic {base64.b64encode(bytes(f'{client_id}:{client_secret}', 'utf-8')).decode('utf-8')}",
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-    data = {
-        'grant_type': 'refresh_token',
-        'refresh_token': refresh_token
-    }
-
-    try:
-        response = requests.post(token_url, headers=headers, data=data)
-        response.raise_for_status()
-        token_data = response.json()
-
-        session['access_token'] = token_data['access_token']
-        session['refresh_token'] = token_data.get('refresh_token', refresh_token)
-        session['token_expiry'] = datetime.now(timezone.utc) + timedelta(seconds=token_data.get('expires_in', 3600))
-
-        write_tokens_to_file(token_data)
-
-        logger.info("Successfully refreshed OAuth token")
-        return token_data['access_token']
-    except Exception as e:
-        logger.error(f"Error refreshing token: {str(e)}")
-        return None
-
-def get_valid_token():
-    if 'access_token' not in session or 'token_expiry' not in session:
-        logger.warning("No access token or expiry time in session")
-        return None
-
-    time_until_expiry = session['token_expiry'] - datetime.now(timezone.utc)
-    logger.info(f"Time until token expiry: {time_until_expiry}")
-
-    if datetime.now(timezone.utc) >= session['token_expiry']:
-        logger.info("Token expired, refreshing...")
-        return refresh_token()
-    
-    logger.info("Using existing valid token")
-    return session['access_token']
 
 @routes_bp.route('/')
 def index():

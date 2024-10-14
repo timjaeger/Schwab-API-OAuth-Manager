@@ -5,7 +5,7 @@
     <h1 class="display-4">Welcome to Schwab OAuth App</h1>
     <p class="lead">This application demonstrates OAuth 2.0 authentication with Schwab's API.</p>
     {% if 'logged_in' not in session %}
-        <a href="{{ url_for('routes_bp.login') }}" class="btn btn-primary btn-lg">Login with Schwab</a>
+        <a href="#" id="loginBtn" class="btn btn-primary btn-lg">Login with Schwab</a>
     {% endif %}
     <a href="{{ url_for('routes_bp.profile') }}" class="btn btn-secondary btn-lg mt-2">View Profile</a>
     {% if 'logged_in' in session %}
@@ -16,6 +16,45 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    var loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            fetch("{{ url_for('routes_bp.login') }}")
+            .then(response => response.json())
+            .then(data => {
+                if (data.auth_url) {
+                    window.open(data.auth_url, "SchwabAuth", "width=600,height=600");
+                    window.addEventListener('message', function(event) {
+                        if (event.origin === "https://127.0.0.1") {
+                            fetch("{{ url_for('routes_bp.process_redirect') }}", {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({redirect_url: event.data}),
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    window.location.href = "{{ url_for('routes_bp.profile') }}";
+                                } else {
+                                    alert('Error: ' + data.error);
+                                }
+                            });
+                        }
+                    }, false);
+                } else {
+                    alert('Error: Unable to start login process');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while starting the login process. Please try again.');
+            });
+        });
+    }
+
     var testRefreshBtn = document.getElementById('testRefreshBtn');
     if (testRefreshBtn) {
         testRefreshBtn.addEventListener('click', function(e) {

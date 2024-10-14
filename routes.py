@@ -4,6 +4,8 @@ from flask import Blueprint, render_template, redirect, url_for, session, reques
 from requests_oauthlib import OAuth2Session
 import requests
 import json
+import base64
+from datetime import datetime, timedelta, timezone
 from modules.oauth.write_tokens import write_tokens_to_file
 from modules.oauth.refresh_token import refresh_token
 from modules.oauth.get_valid_token import get_valid_token
@@ -32,64 +34,58 @@ def login():
     authorization_url, state = schwab.authorization_url(authorization_base_url)
     session['oauth_state'] = state
     logger.info(f"Initiating OAuth flow, redirecting to: {authorization_url}")
-    return render_template('login_instructions.html', auth_url=authorization_url)
+    return jsonify({"auth_url": authorization_url})
 
-@routes_bp.route('/enter_redirect')
-def enter_redirect():
-    return render_template('enter_redirect.html')
-
-@routes_bp.route('/process_redirect', methods=['GET', 'POST'])
+@routes_bp.route('/process_redirect', methods=['POST'])
 def process_redirect():
-    if request.method == 'POST':
-        redirect_url = request.form['redirect_url']
-        try:
-            # Extract the code from the URL
-            code = f"{redirect_url[redirect_url.index('code=')+5:redirect_url.index('%40')]}@"
-            
-            # Prepare headers and data for token request
-            headers = {
-                'Authorization': f"Basic {base64.b64encode(bytes(f'{client_id}:{client_secret}', 'utf-8')).decode('utf-8')}",
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-            data = {
-                'grant_type': 'authorization_code',
-                'code': code,
-                'redirect_uri': 'https://127.0.0.1'
-            }
-            
-            # Make the token request
-            response = requests.post('https://api.schwabapi.com/v1/oauth/token', headers=headers, data=data)
-            response.raise_for_status()
-            token_data = response.json()
+    redirect_url = request.json['redirect_url']
+    try:
+        # Extract the code from the URL
+        code = f"{redirect_url[redirect_url.index('code=')+5:redirect_url.index('%40')]}@"
+        
+        # Prepare headers and data for token request
+        headers = {
+            'Authorization': f"Basic {base64.b64encode(bytes(f'{client_id}:{client_secret}', 'utf-8')).decode('utf-8')}",
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        data = {
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': 'https://127.0.0.1'
+        }
+        
+        # Make the token request
+        response = requests.post('https://api.schwabapi.com/v1/oauth/token', headers=headers, data=data)
+        response.raise_for_status()
+        token_data = response.json()
 
-            # Store the tokens securely
-            session['access_token'] = token_data['access_token']
-            session['refresh_token'] = token_data.get('refresh_token')
-            session['token_expiry'] = datetime.now(timezone.utc) + timedelta(seconds=token_data.get('expires_in', 3600))
-            session['logged_in'] = True
-            
-            write_tokens_to_file(token_data)
-            
-            # Get account numbers
-            base_url = "https://api.schwabapi.com/trader/v1/"
-            account_response = requests.get(f'{base_url}/accounts/accountNumbers', headers={'Authorization': f'Bearer {token_data["access_token"]}'})
-            account_response.raise_for_status()
-            account_numbers = account_response.json()
-            
-            return jsonify({
-                "message": "Successfully processed OAuth flow",
-                "account_numbers": account_numbers,
-                "token_info": {
-                    "access_token": token_data['access_token'][:10] + '...',  # Show only first 10 characters
-                    "expires_in": token_data.get('expires_in'),
-                    "token_type": token_data.get('token_type')
-                }
-            })
-        except Exception as e:
-            logger.error(f"Error processing redirect URL: {str(e)}")
-            return jsonify({"error": str(e)}), 400
-
-    return render_template('enter_redirect.html')
+        # Store the tokens securely
+        session['access_token'] = token_data['access_token']
+        session['refresh_token'] = token_data.get('refresh_token')
+        session['token_expiry'] = datetime.now(timezone.utc) + timedelta(seconds=token_data.get('expires_in', 3600))
+        session['logged_in'] = True
+        
+        write_tokens_to_file(token_data)
+        
+        # Get account numbers
+        base_url = "https://api.schwabapi.com/trader/v1/"
+        account_response = requests.get(f'{base_url}/accounts/accountNumbers', headers={'Authorization': f'Bearer {token_data["access_token"]}'})
+        account_response.raise_for_status()
+        account_numbers = account_response.json()
+        
+        return jsonify({
+            "success": True,
+            "message": "Successfully processed OAuth flow",
+            "account_numbers": account_numbers,
+            "token_info": {
+                "access_token": token_data['access_token'][:10] + '...',  # Show only first 10 characters
+                "expires_in": token_data.get('expires_in'),
+                "token_type": token_data.get('token_type')
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error processing redirect URL: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @routes_bp.route('/profile')
 def profile():
@@ -97,7 +93,7 @@ def profile():
     access_token = get_valid_token()
     if not access_token:
         logger.warning("No valid access token available, redirecting to login")
-        return redirect(url_for('routes_bp.login'))
+        return redirect(url_for('routes_bp.index'))
     
     try:
         headers = {'Authorization': f"Bearer {access_token}"}

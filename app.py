@@ -26,9 +26,9 @@ callback_url = 'https://127.0.0.1'
 
 def write_tokens_to_file(tokens):
     token_data = {
-        "token_dictionary": tokens,
         "access_token_issued": datetime.now(timezone.utc).isoformat(),
-        "refresh_token_issued": datetime.now(timezone.utc).isoformat()
+        "refresh_token_issued": datetime.now(timezone.utc).isoformat(),
+        "token_dictionary": tokens
     }
     with open('tokens.json', 'w') as f:
         json.dump(token_data, f, indent=4)
@@ -88,11 +88,11 @@ def index():
 def login():
     authorization_url = f"https://api.schwabapi.com/v1/oauth/authorize?client_id={client_id}&redirect_uri={callback_url}"
     logger.info(f"Initiating OAuth flow, redirecting to: {authorization_url}")
-    return redirect(authorization_url)
+    return render_template('login.html', auth_url=authorization_url)
 
 @app.route('/process_redirect', methods=['POST'])
 def process_redirect():
-    redirect_url = request.form['redirect_url']
+    redirect_url = request.json['redirect_url']
     try:
         # Extract the code from the URL
         code = f"{redirect_url[redirect_url.index('code=')+5:redirect_url.index('%40')]}@"
@@ -146,25 +146,6 @@ def profile():
         logger.error(f"Error retrieving user profile: {str(e)}")
         return render_template('error.html', error=str(e)), 400
 
-@app.route('/accounts')
-def accounts():
-    logger.info("Accessing accounts route")
-    access_token = get_valid_token()
-    if not access_token:
-        logger.warning("No valid access token available, redirecting to login")
-        return redirect(url_for('login'))
-    
-    try:
-        headers = {'Authorization': f"Bearer {access_token}"}
-        response = requests.get('https://api.schwabapi.com/trader/v1/accounts/accountNumbers', headers=headers)
-        response.raise_for_status()
-        account_numbers = response.json()
-        logger.info("Successfully retrieved account numbers")
-        return render_template('accounts.html', account_numbers=account_numbers)
-    except Exception as e:
-        logger.error(f"Error retrieving account numbers: {str(e)}")
-        return render_template('error.html', error=str(e)), 400
-
 @app.route('/logout')
 def logout():
     session.pop('access_token', None)
@@ -178,14 +159,16 @@ def logout():
 @app.route('/test_refresh')
 def test_refresh():
     logger.info("Testing token refresh")
-    # Force token expiration
     session['token_expiry'] = datetime.now(timezone.utc) - timedelta(seconds=1)
     
     access_token = get_valid_token()
     if not access_token:
         return jsonify({"error": "Failed to refresh token"}), 400
     
-    return jsonify({"message": "Token refreshed successfully", "new_token": access_token})
+    with open('tokens.json', 'r') as f:
+        tokens = json.load(f)
+    
+    return jsonify({"message": "Token refreshed successfully", "tokens": tokens})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

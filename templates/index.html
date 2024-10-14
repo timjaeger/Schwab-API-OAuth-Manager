@@ -5,46 +5,9 @@
     <h1 class="display-4">Welcome to Schwab OAuth App</h1>
     <p class="lead">This application demonstrates OAuth 2.0 authentication with Schwab's API.</p>
     {% if 'logged_in' not in session %}
-        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg" target="_blank">Login with Schwab</a>
-        
-        <form id="redirectForm" action="{{ url_for('process_redirect') }}" method="post" class="mt-3">
-            <div class="input-group">
-                <input type="text" class="form-control" id="redirect_url" name="redirect_url" placeholder="Enter Redirect URL" required>
-                <button type="submit" class="btn btn-secondary">Submit</button>
-            </div>
-        </form>
+        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Login with Schwab</a>
     {% endif %}
     <a href="{{ url_for('profile') }}" class="btn btn-secondary btn-lg mt-2">View Profile</a>
-    <a href="{{ url_for('test_refresh') }}" id="testRefreshBtn" class="btn btn-info btn-lg mt-2" style="display: none;">Test Token Refresh</a>
+    <a href="{{ url_for('test_refresh') }}" id="testRefreshBtn" class="btn btn-info btn-lg mt-2">Test Token Refresh</a>
 </div>
-
-<script>
-document.getElementById('redirect_url').addEventListener('input', function() {
-    document.getElementById('testRefreshBtn').style.display = this.value ? 'inline-block' : 'none';
-});
-
-document.getElementById('redirectForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    fetch(this.action, {
-        method: 'POST',
-        body: new FormData(this),
-        headers: {
-            'Accept': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.open(data.profile_url, '_blank');
-            document.getElementById('testRefreshBtn').style.display = 'inline-block';
-        } else {
-            alert('Error: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred. Please try again.');
-    });
-});
-</script>
 {% endblock %}

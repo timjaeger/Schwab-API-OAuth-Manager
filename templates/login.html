@@ -6,26 +6,30 @@
     <script>
     window.onload = function() {
         var authWindow = window.open("{{ auth_url }}", "SchwabAuth", "width=600,height=600");
-        window.addEventListener('message', function(event) {
-            if (event.origin === "https://127.0.0.1") {
-                authWindow.close();
-                fetch('/process_redirect', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({redirect_url: event.data}),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = data.profile_url;
-                    } else {
-                        alert('Error: ' + data.error);
-                    }
-                });
-            }
-        }, false);
+        if (authWindow) {
+            window.addEventListener('message', function(event) {
+                if (event.origin === "https://127.0.0.1") {
+                    authWindow.close();
+                    fetch('/process_redirect', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({redirect_url: event.data}),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            window.location.href = data.profile_url;
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    });
+                }
+            }, false);
+        } else {
+            alert("Unable to open authentication window. Please check your pop-up blocker settings.");
+        }
     };
     </script>
 </div>

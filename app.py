@@ -90,44 +90,49 @@ def login():
     authorization_url, state = schwab.authorization_url(authorization_base_url)
     session['oauth_state'] = state
     logger.info(f"Initiating OAuth flow, redirecting to: {authorization_url}")
-    return redirect(authorization_url)
+    return render_template('login_instructions.html', auth_url=authorization_url)
 
-@app.route('/process_redirect', methods=['POST'])
+@app.route('/enter_redirect')
+def enter_redirect():
+    return render_template('enter_redirect.html')
+
+@app.route('/process_redirect', methods=['GET', 'POST'])
 def process_redirect():
-    redirect_url = request.json['redirect_url']
-    try:
-        # Extract the code from the URL
-        code = f"{redirect_url[redirect_url.index('code=')+5:redirect_url.index('%40')]}@"
-        
-        # Prepare headers and data for token request
-        headers = {
-            'Authorization': f"Basic {base64.b64encode(bytes(f'{client_id}:{client_secret}', 'utf-8')).decode('utf-8')}",
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-        data = {
-            'grant_type': 'authorization_code',
-            'code': code,
-            'redirect_uri': 'https://127.0.0.1'
-        }
-        
-        # Make the token request
-        response = requests.post('https://api.schwabapi.com/v1/oauth/token', headers=headers, data=data)
-        response.raise_for_status()
-        token_data = response.json()
+    if request.method == 'POST':
+        redirect_url = request.form['redirect_url']
+        try:
+            # Extract the code from the URL
+            code = f"{redirect_url[redirect_url.index('code=')+5:redirect_url.index('%40')]}@"
+            
+            # Prepare headers and data for token request
+            headers = {
+                'Authorization': f"Basic {base64.b64encode(bytes(f'{client_id}:{client_secret}', 'utf-8')).decode('utf-8')}",
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            data = {
+                'grant_type': 'authorization_code',
+                'code': code,
+                'redirect_uri': 'https://127.0.0.1'
+            }
+            
+            # Make the token request
+            response = requests.post('https://api.schwabapi.com/v1/oauth/token', headers=headers, data=data)
+            response.raise_for_status()
+            token_data = response.json()
 
-        # Store the tokens securely
-        session['access_token'] = token_data['access_token']
-        session['refresh_token'] = token_data.get('refresh_token')
-        session['token_expiry'] = datetime.now(timezone.utc) + timedelta(seconds=token_data.get('expires_in', 3600))
-        session['logged_in'] = True
-        
-        write_tokens_to_file(token_data)
-        
-        logger.info("Successfully obtained OAuth token")
-        return jsonify({"success": True, "profile_url": url_for('profile', _external=True)})
-    except Exception as e:
-        logger.error(f"Error processing redirect URL: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 400
+            # Store the tokens securely
+            session['access_token'] = token_data['access_token']
+            session['refresh_token'] = token_data.get('refresh_token')
+            session['token_expiry'] = datetime.now(timezone.utc) + timedelta(seconds=token_data.get('expires_in', 3600))
+            session['logged_in'] = True
+            
+            write_tokens_to_file(token_data)
+            
+            logger.info("Successfully obtained OAuth token")
+            return redirect(url_for('profile'))
+        except Exception as e:
+            logger.error(f"Error processing redirect URL: {str(e)}")
+            return render_template('error.html', error=str(e)), 400
 
 @app.route('/profile')
 def profile():

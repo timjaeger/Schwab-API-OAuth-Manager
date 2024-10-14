@@ -73,11 +73,9 @@ def index():
 
 @app.route('/login')
 def login():
-    schwab = OAuth2Session(client_id, scope=scope, redirect_uri=callback_url)
-    authorization_url = f"{authorization_base_url}?client_id={client_id}&redirect_uri={callback_url}"
-    session['oauth_state'] = schwab.state
+    authorization_url = f"https://api.schwabapi.com/v1/oauth/authorize?client_id={client_id}&redirect_uri={callback_url}"
     logger.info(f"Initiating OAuth flow, redirecting to: {authorization_url}")
-    return render_template('login_instructions.html', auth_url=authorization_url)
+    return redirect(authorization_url)
 
 @app.route('/enter_redirect')
 def enter_redirect():

@@ -8,6 +8,26 @@
         <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Login with Schwab</a>
     {% endif %}
     <a href="{{ url_for('profile') }}" class="btn btn-secondary btn-lg mt-2">View Profile</a>
-    <a href="{{ url_for('test_refresh') }}" id="testRefreshBtn" class="btn btn-info btn-lg mt-2">Test Token Refresh</a>
+    <a href="#" id="testRefreshBtn" class="btn btn-info btn-lg mt-2">Test Token Refresh</a>
 </div>
+<div id="refreshResult" class="mt-4"></div>
+
+<script>
+document.getElementById('testRefreshBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    fetch("{{ url_for('test_refresh') }}")
+    .then(response => response.json())
+    .then(data => {
+        const resultDiv = document.getElementById('refreshResult');
+        resultDiv.innerHTML = `
+            <h3>Token Refresh Result</h3>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while refreshing the token. Please try again.');
+    });
+});
+</script>
 {% endblock %}

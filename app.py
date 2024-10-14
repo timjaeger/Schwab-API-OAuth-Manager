@@ -190,7 +190,12 @@ def test_refresh():
     with open('tokens.json', 'r') as f:
         tokens = json.load(f)
     
-    return jsonify({"message": "Token refreshed successfully", "tokens": tokens})
+    return jsonify({
+        "message": "Token refreshed successfully",
+        "new_access_token": access_token[:10] + '...',  # Show only first 10 characters
+        "expires_in": tokens['token_dictionary'].get('expires_in'),
+        "token_type": tokens['token_dictionary'].get('token_type')
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
